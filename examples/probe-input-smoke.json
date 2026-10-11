@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "probe-input-smoke",
+  "description": "A held on emulator frames 8-11; released at 12",
+  "target": {
+    "rom": "probe.nes",
+    "sha256": "7adc3e4efe74bee9412810f20d1651feaa981e2bd19876bf4b808593ee4196e9",
+    "region": "ntsc"
+  },
+  "emulator": {
+    "adapter": "mesence",
+    "min_version": "2.2.1",
+    "version": "2.2.1",
+    "binary_sha256": "64bc63dc04ae9dfe78fc6089155d5321b68fd4e5198b3c973a80532a8e285334"
+  },
+  "initial_state": "clean_boot",
+  "ports": [{"port": 1, "device": "nes_controller"}],
+  "trace": {
+    "format": "frame_events_v1",
+    "frames": [
+      {"frame": 0, "held": []},
+      {"frame": 8, "held": ["a"]},
+      {"frame": 12, "held": []}
+    ]
+  },
+  "limits": {"max_frames": 16, "timeout_seconds": 10},
+  "checkpoints": [
+    {"name": "held", "frame": 10, "address": 770, "space": "cpu_ram", "span": 1, "op": "eq", "value": 1},
+    {"name": "released", "frame": 14, "address": 770, "space": "cpu_ram", "span": 1, "op": "zero"},
+    {"name": "count", "frame": 15, "symbol": "a_frames", "symbols_from": "probe.lbl", "segment_base": 0, "span": 1, "op": "eq", "value": 4}
+  ]
+}

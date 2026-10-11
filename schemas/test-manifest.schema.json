@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retro-game-qa.local/schemas/test-manifest.schema.json",
+  "title": "Retro Game QA test manifest",
+  "description": "Versioned, human-reviewable description of a deterministic retro-game replay test. The manifest pins every input to the replay so that a CI machine can reproduce it with no model calls.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "description",
+    "target",
+    "emulator",
+    "initial_state",
+    "ports",
+    "trace",
+    "limits",
+    "checkpoints"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Manifest schema version. The runner rejects any version it does not implement.",
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "description": "Stable identifier, unique within a suite. Used for evidence paths.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "description": {
+      "description": "One-line human summary of the behaviour under test.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "target": {
+      "description": "The ROM under test and the console profile it must be replayed against.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rom",
+        "sha256",
+        "region"
+      ],
+      "properties": {
+        "rom": {
+          "description": "Path to the ROM, relative to the manifest file. Absolute paths are rejected.",
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256 of the ROM. A mismatch is a hard failure: the runner must never replay against a different build.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "region": {
+          "description": "Console region the trace was authored against. Region changes timing and is part of the pinned contract.",
+          "type": "string",
+          "enum": [
+            "ntsc"
+          ]
+        }
+      }
+    },
+    "emulator": {
+      "description": "Emulator + core identity. Pinned so a trace cannot silently replay on a different core.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter",
+        "min_version",
+        "version",
+        "binary_sha256"
+      ],
+      "properties": {
+        "adapter": {
+          "description": "Adapter name. Only adapters the runner implements are accepted.",
+          "type": "string",
+          "enum": [
+            "mesence"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "binary_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "min_version": {
+          "description": "Minimum emulator version required (semver). The runner refuses an older binary.",
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      }
+    },
+    "initial_state": {
+      "description": "Machine state before frame 0. 'clean_boot' is a power-on reset from a zero-filled RAM; no savestate is loaded.",
+      "type": "string",
+      "enum": [
+        "clean_boot"
+      ]
+    },
+    "ports": {
+      "description": "Controller ports configuration. Port 1 is the only port the first adapter drives; declaring a device that is not a standard controller is an unsupported capability and is rejected.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "port",
+          "device"
+        ],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "const": 1
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "nes_controller"
+            ]
+          }
+        }
+      }
+    },
+    "trace": {
+      "description": "Frame-indexed controller trace. Each entry names the frame at which the given buttons begin to be held; the button set stays held until a later entry changes it. Buttons absent from an entry's 'held' list are released at that frame.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "frames"
+      ],
+      "properties": {
+        "format": {
+          "description": "Trace format identifier. 'frame_events_v1' is the only supported format.",
+          "type": "string",
+          "const": "frame_events_v1"
+        },
+        "frames": {
+          "description": "Strictly increasing zero-based emulator frames, including reset/boot. inputPolled applies trace[F]; endFrame samples F. Empty held releases all buttons.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "frame",
+              "held"
+            ],
+            "properties": {
+              "frame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "held": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "a",
+                    "b",
+                    "select",
+                    "start",
+                    "up",
+                    "down",
+                    "left",
+                    "right"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "Hard bounds so a replay always terminates.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_frames",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "max_frames": {
+          "description": "Maximum emulated frames to run. The runner stops here even if the trace is longer.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "timeout_seconds": {
+          "description": "Wall-clock timeout for the whole emulator process.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        }
+      }
+    },
+    "checkpoints": {
+      "description": "Memory assertions evaluated at their named frame. Symbols are resolved from build artifacts at run time; an unresolvable symbol is a hard failure, never a silent default. Screenshot checkpoints are a distinct type and are not gameplay assertions.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/checkpoint"
+      }
+    },
+    "screenshot_checkpoints": {
+      "description": "Visual baselines, kept distinct from gameplay assertions. Not supported by the headless adapter; declaring one fails loudly until a capture path is proven.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/screenshot_checkpoint"
+      }
+    }
+  },
+  "$defs": {
+    "checkpoint": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/symbol_assertion"
+        },
+        {
+          "$ref": "#/$defs/address_assertion"
+        }
+      ]
+    },
+    "assertion_body": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Human label shown in evidence.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "frame": {
+          "description": "Emulated frame at which the assertion is sampled, after that frame's vblank.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "op": {
+          "description": "Comparison operator.",
+          "type": "string",
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "le",
+            "gt",
+            "ge",
+            "zero",
+            "nonzero"
+          ]
+        },
+        "value": {
+          "description": "Required for binary comparisons; omitted for zero/nonzero.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "span": {
+          "description": "Byte width of the observation (1 or 2). 2 is little-endian.",
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "frame",
+        "op"
+      ]
+    },
+    "symbol_assertion": {
+      "description": "Assertion against a named symbol resolved from a linker label map, relative to a segment base.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/assertion_body"
+        },
+        {
+          "type": "object",
+          "required": [
+            "symbol"
+          ],
+          "properties": {
+            "symbol": {
+              "description": "Label name as it appears in the linker map (e.g. pad1_held).",
+              "type": "string",
+              "minLength": 1
+            },
+            "symbols_from": {
+              "description": "Linker label map to resolve the symbol from. Path relative to the manifest. Required for symbol assertions so addresses are never inferred.",
+              "type": "string",
+              "minLength": 1
+            },
+            "segment_base": {
+              "description": "Explicit relocation addend. Use 0 for absolute ld65 -Ln labels; nonzero only for genuinely relative maps.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        }
+      ],
+      "properties": {},
+      "unevaluatedProperties": false
+    },
+    "address_assertion": {
+      "description": "Assertion against an explicit CPU memory address, used when no symbol is available.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/assertion_body"
+        },
+        {
+          "type": "object",
+          "required": [
+            "address",
+            "space"
+          ],
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "space": {
+              "description": "Address space of the observation.",
+              "type": "string",
+              "enum": [
+                "cpu_ram"
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "screenshot_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "frame",
+        "baseline"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseline": {
+          "description": "Approved baseline image, relative to the manifest.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

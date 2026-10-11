@@ -1,0 +1,12 @@
+# Build outputs — never commit; the ROM is reproducible via `make check`.
+build/
+*.o
+*.nes
+*.lbl
+*.map
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+evidence/

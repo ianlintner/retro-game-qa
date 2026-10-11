@@ -1,0 +1,22 @@
+name: Unit and fixture checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install cc65 and Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cc65
+          python -m pip install -r requirements.txt
+      - name: Build source-owned NES fixture
+        run: make -C fixtures/input-probe check
+      - name: Unit tests (real Mesen tests require opt-in local toolchain)
+        run: python -m pytest -q
