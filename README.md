@@ -15,7 +15,7 @@ A local-first, deterministic tool-assisted test runner for retro games. This rep
 
 ## Scope boundaries
 
-Do not mutate an existing game repository to make a demo pass. Keep artifacts small and reviewable, and avoid embedding copyrighted ROMs. This public baseline contains only the reviewed NES runner; visual-capture and Game Boy portability branches remain local until separately reviewed. No reuse license has been selected; public visibility alone does not grant redistribution rights. Add CI only for tests that can run in the target environment. Pin dependencies and document bootstrap requirements.
+Do not mutate an existing game repository to make a demo pass. Keep artifacts small and reviewable, and avoid embedding copyrighted ROMs. This public baseline contains only the reviewed NES runner; visual-capture and Game Boy portability branches remain local until separately reviewed. Released under the MIT license (see `LICENSE`). Add CI only for tests that can run in the target environment. Pin dependencies and document bootstrap requirements.
 
 ## Running the implemented NES adapter
 
